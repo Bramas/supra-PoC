@@ -1,8 +1,10 @@
 const Supra = artifacts.require("Supra");
 
-
+const Broker = require("esm")(module)('../src/Broker.js').default;
+const commands = require("esm")(module)('../src/commands.js');
 
 const BN = web3.utils.BN;
+Broker.web3 = web3;
 
 
 
@@ -16,10 +18,27 @@ contract('Supra', (accounts) => {
 
 
   it('should put some brokers in the broker list', async () => {
-    const supraInstance = await Supra.deployed();
-    
-    console.log(accounts[0],new BN('1').toString(16,4*2))
 
+
+    const supraInstance = await Supra.deployed();
+
+    // Create the contract in the same way we do in the program (instead of using the truffle wrapper)
+
+    const contract = new web3.eth.Contract(supraInstance.abi, {
+      gasPrice: web3.utils.toWei('50', 'gwei')
+    });
+    contract.options.address = supraInstance.address;
+    
+
+    console.log('account 0:', accounts[0])
+
+    
+    const b1 = new Broker(contract, accounts[0]);
+    await b1.create('0x01')
+    console.log('brokers:', await contract.methods.getBrokers().call());
+    console.log(await commands.send.apply(null, [b1, '1', 'Hello']));
+
+    /*
     await supraInstance.registerBroker('0x'+new BN('1').toString(16,4*2), { from: accounts[0], value:1000 });
     await supraInstance.registerBroker('0x'+new BN('2').toString(16,4*2), { from: accounts[1], value:1000 });
     
@@ -60,7 +79,7 @@ contract('Supra', (accounts) => {
       accounts[0], 
       timestamp, topic, prev_hash, strToData('HELLO 3')
     );
-
+*/
   });
 
 

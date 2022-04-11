@@ -6,9 +6,11 @@ const BN = web3.utils.BN;
 
 class Broker {
 
-    constructor(supraInstance, account) {
+    static web3 = null;
+
+    constructor(supraInstance, accountAdr) {
         this.supra = supraInstance;
-        this.account = account;
+        this.accountAdr = accountAdr;
         this.prev_hash = this.toBytes(0, 32);
         this.timestamp = new Date().getTime();
     }
@@ -17,11 +19,11 @@ class Broker {
         try {
             const gas = await this.supra.methods
                 .registerBroker('0x'+new BN(ipAddr).toString(16,4*2))
-                .estimateGas({ from: this.account.address, value:1000 });
+                .estimateGas({ from: this.accountAdr, value:1000 });
                 
             return await this.supra.methods
                 .registerBroker('0x'+new BN(ipAddr).toString(16,4*2))
-                .send({ gas, from: this.account.address, value:1000 });
+                .send({ gas, from: this.accountAdr, value:1000 });
         } catch(e) {
             console.log(e);
         }
@@ -29,7 +31,7 @@ class Broker {
     
     async getBalance() {
         return await this.supra.methods
-            .getBalance(this.account.address)
+            .getBalance(this.accountAdr)
             .call();
     }
 
@@ -45,7 +47,7 @@ class Broker {
     async signMessage(hashedMessage) {
 
         // sign hashed message
-        const signature = await web3.eth.sign('0x'+hashedMessage, this.account.address); 
+        const signature = await Broker.web3.eth.sign('0x'+hashedMessage, this.accountAdr); 
 
         // split signature
         const r = signature.slice(0, 66);
@@ -70,7 +72,7 @@ class Broker {
             sig: { r, s, v }
         })
 
-        //console.log(web3.utils.asciiToHex("abc"));
+        //console.log(Broker.web3.utils.asciiToHex("abc"));
         //console.log(bytes.map(c => '0x'+c.toString(16)));
         //console.log({ r, s, v });
         /*
@@ -87,17 +89,17 @@ class Broker {
 
         const gas = await this.supra.methods
             .sendMessage(topic, '0x'+dataHex, this.timestamp, '0x'+prev_hash)
-            .estimateGas({from: this.account.address});
+            .estimateGas({from: this.accountAdr});
 
         this.supra.methods
             .sendMessage(topic, '0x'+dataHex, this.timestamp, '0x'+prev_hash)
-            .send({gas, from: this.account.address});
+            .send({gas, from: this.accountAdr});
 
         return hashedmsg;
     }
 
     hashData(data) {
-        return web3.utils.soliditySha3('0x'+data).slice(2);
+        return Broker.web3.utils.soliditySha3('0x'+data).slice(2);
     }
 
     toBytes(n, nb_bytes) {
@@ -115,7 +117,7 @@ class Broker {
             console.log('0x'+ toBytes(topic, 4) )
             console.log('0x'+ data_hash)
             console.log('0x'+ prev_hash)*/
-        return web3.utils.soliditySha3('0x'+this.toBytes(timestamp, 8) + this.toBytes(topic, 4) + data_hash + prev_hash).slice(2);
+        return Broker.web3.utils.soliditySha3('0x'+this.toBytes(timestamp, 8) + this.toBytes(topic, 4) + data_hash + prev_hash).slice(2);
     }
 
     async sendMessageOffChain(timestamp, topic, prev_hash, dataHex) {
@@ -156,5 +158,6 @@ class Broker {
         return bytes.join('');
     }
 }
+Broker.web3 = web3;
 
 export default Broker;
