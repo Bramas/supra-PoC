@@ -12,7 +12,7 @@ const contractAbi = JSON.parse(fs.readFileSync('build/contracts/Supra.json', 'ut
 const contract = new web3.eth.Contract(contractAbi['abi'], {
     gasPrice: web3.utils.toWei('50', 'gwei')
 });
-contract.options.address = '0x36730ED97D3B65e45834844fd7ec5AbfC8f2E5e6';
+contract.options.address = process.env.SUPRA_ADDR;
 contract.options.from = account0.address;
 
 console.log('from '+account0.address);
