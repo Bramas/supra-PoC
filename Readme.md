@@ -15,5 +15,25 @@ Create an `.env` file containing two keys:
 then in another terminal execute
 ```
 npm install
-node src/mod_index.js send 1 Hello
 ```
+
+Then you can open 4 terminals to start 2 brokers:
+```
+node src/mod_index.js broker listen 2222
+```
+
+```
+node src/mod_index.js broker listen 2223
+```
+
+One worker connected to the first broker, but subscribed to the second broker:
+```
+node src/mod_index.js worker subscribe localhost 2222 2223:1
+```
+and one worker connected to the second broker that publish a data:
+
+One worker connected to the first broker, but subscribed to the second broker:
+```
+node src/mod_index.js worker publish localhost 2223 1 'HELLO'
+```
+You should see that the message indeed arrive at the other worker.
