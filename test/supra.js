@@ -2,6 +2,7 @@ const Supra = artifacts.require("Supra");
 
 const Broker = require("esm")(module)('../src/Broker.js').default;
 const commands = require("esm")(module)('../src/commands.js');
+const {strToData} = require("esm")(module)('../src/utils');
 
 const BN = web3.utils.BN;
 Broker.web3 = web3;
@@ -14,6 +15,37 @@ contract('Supra', (accounts) => {
 
   beforeEach(async () => {
     chainId = await web3.eth.net.getId();
+  });
+
+  it('should verify what it signed', async () => {
+    const supraInstance = await Supra.deployed();
+
+    // Create the contract in the same way we do in the program (instead of using the truffle wrapper)
+
+    const contract = new web3.eth.Contract(supraInstance.abi, {
+      gasPrice: web3.utils.toWei('50', 'gwei')
+    });
+    contract.options.address = supraInstance.address;
+    
+
+    console.log('account 0:', accounts[0])
+
+    
+    const b1 = new Broker(contract, accounts[0]);
+    //await b1.create('0x01')
+
+    let msg = {
+      topic: '0:1',
+      timestamp: 2,
+      data: '2457367356',
+      prev_hash: b1.toBytes(0, 32)
+    }
+
+    const sig = await b1.signMessage(msg);
+    msg = {...msg, ...sig};
+
+    const signer = await b1.verifyMessage(msg);
+    assert.equal(b1.accountAdr,signer);
   });
 
 

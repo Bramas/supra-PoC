@@ -21,10 +21,16 @@ if(!process.env.SUPRA_ADDR) {
 }
 
 
-export const account0 = web3.eth.accounts.privateKeyToAccount(process.env.TRUFFLE_PK0);
+export const accounts = [
+    web3.eth.accounts.privateKeyToAccount(process.env.TRUFFLE_PK0),
+    web3.eth.accounts.privateKeyToAccount(process.env.TRUFFLE_PK1),
+    web3.eth.accounts.privateKeyToAccount(process.env.TRUFFLE_PK2)
+];
 
 
-web3.eth.defaultAccount = account0.address;
-web3.eth.accounts.wallet.add(account0);
+web3.eth.defaultAccount = accounts[0].address;
+web3.eth.accounts.wallet.add(accounts[0]);
+web3.eth.accounts.wallet.add(accounts[1]);
+web3.eth.accounts.wallet.add(accounts[2]);
 
 export default web3;

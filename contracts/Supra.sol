@@ -37,6 +37,7 @@ contract Supra {
 	struct Broker {
 		address payable account;
 		bytes4 ipAddr;
+		uint16 port;
 	}
 
 	struct Message {
@@ -66,7 +67,7 @@ contract Supra {
 	}
 
 
-	function registerBroker(bytes4 _ipAddr) public payable
+	function registerBroker(bytes4 _ipAddr, uint16 _port) public payable
 	{
 		require(msg.value >= REGISTER_FEE);
 		for (uint i = 0; i < brokers.length; i++) {
@@ -76,7 +77,8 @@ contract Supra {
 		balances[msg.sender] += msg.value;
 		brokers.push(Broker({
 			account: payable(msg.sender), 
-			ipAddr: _ipAddr
+			ipAddr: _ipAddr, 
+			port: _port
 		}));
 	}
 
@@ -157,6 +159,42 @@ contract Supra {
         return keccak256(abi.encodePacked(sig_v, sig_r, sig_s));
     }
 
+	function _accuse_check_message(
+		uint defendant_id,
+	 	uint32 topic, 
+		bytes32 prev_hash, 
+		bytes32 data_hash,
+		uint64 timestamp, 
+		uint8 sig_v,
+		bytes32[2] memory sig_rs
+		
+		) private view
+	{
+		address defendant = brokers[defendant_id].account;
+		bytes32 msgHash = messageHash(timestamp,topic,data_hash,prev_hash);
+		require(defendant == VerifyMessage(
+			msgHash, 
+			sig_v, sig_rs[0], sig_rs[1])
+		);
+	}
+	function _accuse_check_openning(
+		uint defendant_id,
+	 	uint32 topic, 
+
+		uint64 open_timestamp,
+		bytes32 open_prev_hash,
+		uint8   open_sig_v,
+		bytes32[2] memory open_sig_rs
+		
+		) private view
+	{
+		address defendant = brokers[defendant_id].account;
+		require(defendant == VerifyMessage(
+			hashOpeningSub(open_timestamp, topic, msg.sender, open_prev_hash), 
+			open_sig_v, open_sig_rs[0], open_sig_rs[1])
+		);
+
+	}
 
 	function accuse(
 		uint defendant_id,
@@ -165,31 +203,22 @@ contract Supra {
 		bytes32 data_hash,
 		uint64 timestamp, 
 		uint8 sig_v,
-		bytes32 sig_r,
-		bytes32 sig_s,
+		bytes32[2] memory sig_rs,
+		//bytes32 sig_s,
 
 		uint64 open_timestamp,
 		bytes32 open_prev_hash,
 		uint8   open_sig_v,
-		bytes32 open_sig_r,
-		bytes32 open_sig_s
+		bytes32[2] memory open_sig_rs
+		//bytes32 open_sig_s
 		
 		) public payable
 	{
 		require(msg.value >= FINE);
 		require(block.timestamp >= timestamp + (MESSAGE_MAX_DELAY_HOURS * 1 hours));
 
-		address defendant = brokers[defendant_id].account;
-		require(defendant == VerifyMessage(
-			messageHash(timestamp,topic,data_hash,prev_hash), 
-			sig_v, sig_r, sig_s)
-		);
-
-		require(defendant == VerifyMessage(
-			hashOpeningSub(open_timestamp, topic, msg.sender, open_prev_hash), 
-			open_sig_v, open_sig_r, open_sig_s)
-		);
-
+		_accuse_check_message(defendant_id, topic,prev_hash, data_hash, timestamp, sig_v, sig_rs);
+		_accuse_check_openning(defendant_id, topic, open_timestamp, open_prev_hash, open_sig_v, open_sig_rs);
 
 		balances[msg.sender] += msg.value;
 
@@ -201,16 +230,16 @@ contract Supra {
 			data_hash: data_hash, 
 			prev_hash: prev_hash, 
 			sig_v: sig_v,
-			sig_r: sig_r,
-			sig_s: sig_s,
+			sig_r: sig_rs[0],
+			sig_s: sig_rs[1],
 			valid: true,
 			deadline: block.timestamp + (ACCUSATION_DEADLINE_DAYS * 1 days),
 			block_number: block.number,
 			open_timestamp: open_timestamp,
 			open_prev_hash: open_prev_hash,
 			open_sig_v: open_sig_v,
-			open_sig_r: open_sig_r,
-			open_sig_s: open_sig_s
+			open_sig_r: open_sig_rs[0],
+			open_sig_s: open_sig_rs[1]
 		}));
 	}
 
@@ -231,15 +260,64 @@ contract Supra {
 			accusations[accusation_id].accuser,
 			accusations[accusation_id].open_prev_hash);
 
+		// m is a closing message
 		Message storage m = messages[defendant][topic][message_id]; 
 
 		require(m.timestamp < timestamp);		
 		require(m.block_number < accusations[accusation_id].block_number);
-		require(m.data[0:32] == open_hash);
+		require(bytesToBytes32(m.data) == open_hash);
 
 		_payeAccuserFine(accusation_id);
 		
 	}
+	function defendClosedSubOffChain(
+		uint32 accusation_id,
+
+		// the closing message
+		uint32 topic, 
+		uint64 timestamp,
+		bytes memory data,
+		bytes32 prevHash,
+		
+		// the signature of its hash by the accuser (i.e. the ack of the message)
+		uint8 _v, 
+		bytes32 _r, 
+		bytes32 _s)
+		public
+	{
+		
+		// A message has been sent before the accusing message
+		// and appears in the same subscription (same topic, same publisher)
+		require(topic == accusations[accusation_id].topic);
+		require(msg.sender == brokers[accusations[accusation_id].defendant_id].account);
+		require(timestamp < accusations[accusation_id].timestamp);
+
+		//it has been akcnowledged
+		bytes32 msgHash = messageHash(timestamp, topic, hashData(data), prevHash);
+		address accuser = accusations[accusation_id].accuser;
+		require(accuser == VerifyMessage(msgHash, _v, _r, _s));
+
+		// and it is a closing message
+		bytes32 open_hash = hashOpeningSub(
+			accusations[accusation_id].open_timestamp,
+			accusations[accusation_id].topic,
+			accusations[accusation_id].accuser,
+			accusations[accusation_id].open_prev_hash);
+
+		require(bytesToBytes32(data) == open_hash);
+
+		_payeAccuserFine(accusation_id);
+		
+	}
+	function bytesToBytes32(bytes memory b) private pure returns (bytes32) {
+		require(b.length == 32);
+		bytes32 out;
+		for (uint i = 0; i < 32; i++) {
+			out |= bytes32(b[i]) >> (i * 8);
+		}
+		return out;
+	}
+
 	function defendOnChain(uint32 accusation_id, uint32 message_id)
 		public
 	{
@@ -273,12 +351,17 @@ contract Supra {
 		bytes32 _s)
 		public
 	{
-		bytes32 msgHash = messageHash(timestamp, topic, dataHash, prevHash);
-
-		address accuser = accusations[accusation_id].accuser;
-
-		require(accuser == VerifyMessage(msgHash, _v, _r, _s));
+		// It is a message that has been sent after the accusing message
+		// and that appear in the same subscription (same topic, same publisher)
+		require(topic == accusations[accusation_id].topic);
+		require(msg.sender == brokers[accusations[accusation_id].defendant_id].account);
 		require(timestamp > accusations[accusation_id].timestamp);
+
+		// and it has been acknowledged
+		bytes32 msgHash = messageHash(timestamp, topic, dataHash, prevHash);
+		address accuser = accusations[accusation_id].accuser;
+		require(accuser == VerifyMessage(msgHash, _v, _r, _s));
+
 				
 		_payeAccuserFine(accusation_id);
 	}
