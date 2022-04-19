@@ -28,7 +28,6 @@ export const broker_send = async (b1, topic, message) => {
     port = parseInt(port);
     
     const brokersInfo = await b1.supra.methods.getBrokers().call();
-
     if(brokersInfo.filter(b => b.account == b1.accountAdr).length == 0)
     {
         console.log('create broker', await b1.create('0x7f000001', port)); // '0x'+b1.toBytes('127',1)+'000001'
