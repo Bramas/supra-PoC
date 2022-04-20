@@ -7,22 +7,32 @@ import Worker from './Worker.js';
 import fs from 'fs';
 import * as commands from './commands.js';
 
-const contractAbi = JSON.parse(fs.readFileSync('build/contracts/Supra.json', 'utf8'))
+import { setWeb3 } from './utils.js';
+import { setSupra } from './supraContract.js';
 
+
+setWeb3(web3);
+
+const contractAbi = JSON.parse(fs.readFileSync('build/contracts/Supra.json', 'utf8'))
 
 const contract = new web3.eth.Contract(contractAbi['abi'], {
     gasPrice: web3.utils.toWei('50', 'gwei')
 });
 contract.options.address = process.env.SUPRA_ADDR;
 
-contract.options.from = accounts[0].address;
+setSupra(contract);
+
+
+
+let defaultAccount = accounts[0].address;
 
 if(process.argv[process.argv.length - 1].startsWith('--pk')) {
     const addIdx = parseInt(process.argv[process.argv.length - 1].slice('--pk'.length))
-    contract.options.from = accounts[addIdx].address;
+    defaultAccount = accounts[addIdx].address;
 }
 
-console.log('from '+contract.options.from);
+
+console.log('from '+defaultAccount);
 
 
 const command_type = process.argv[2];
@@ -38,18 +48,19 @@ if(!commands[command])
 
 (async function() {
     if(command_type == 'broker') {
-        const b1 = new Broker(contract, contract.options.from);
     
-        console.log('exec command', await commands[command].apply(null, [b1, ...process.argv.slice(4)]));
+        await commands[command].apply(null, [defaultAccount, ...process.argv.slice(4)]);
+
     } else if (command_type == 'worker') {
 
         let ip = parseInt(process.argv[4]);
         let port = parseInt(process.argv[5]);  
         const w = new Worker(ip, port);
 
-        console.log(await commands[command].apply(null, [w, ...process.argv.slice(6)]));
+        await commands[command].apply(null, [w, ...process.argv.slice(6)]);
     }
     
+    web3.currentProvider.disconnect();
 
     /*
     console.log(

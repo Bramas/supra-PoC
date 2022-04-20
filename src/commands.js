@@ -1,8 +1,10 @@
-import { strToData } from './utils.js';
+import { strToData, toBytes } from './utils.js';
 
 import assert from 'assert';
+import { getBrokers, registerBroker } from './supraContract.js';
+import Broker from './Broker.js';
 
-export const broker_info = async (b1, topic) => {
+export const broker_info = async (account, topic) => {
     console.log({topic});
     try{
       return null;
@@ -11,43 +13,38 @@ export const broker_info = async (b1, topic) => {
     }
 }
   
+export const broker_create = async (account, ip, port) => {
 
-export const broker_send = async (b1, topic, message) => {
-    console.log({topic, message});
-    assert(!!topic)
-    assert(!!message)
-    try{
-      const resp = await b1.sendData(parseInt(topic), strToData(message));
-      return resp;
-    } catch (e) {
-      console.log('ERROR', e);
-    }
-  }
+  ip = '0x'+ip.split('.').map(n => toBytes(parseInt(n), 1).slice(2)).join('');
+
+  console.log('creating broker', ip, port);
+
+  console.log('created broker', await registerBroker('0x7f000001', port, account));
+}
+
   
-  export const broker_listen = async (b1, port) => {
-    port = parseInt(port);
-    
-    const brokersInfo = await b1.supra.methods.getBrokers().call();
-    if(brokersInfo.filter(b => b.account == b1.accountAdr).length == 0)
-    {
-        console.log('create broker', await b1.create('0x7f000001', port)); // '0x'+b1.toBytes('127',1)+'000001'
-    }
-    else {
-      console.log('loading broker');
-      await b1.load();
-    }
-    console.log('running broker with index', b1.id);
-    b1.listen(port);
+export const broker_listen = async (account, id) => {
+
+
+    const brokersInfo = await getBrokers();
+
+    const brokerInfo = brokersInfo[id];
+
+    if(!brokerInfo) throw `broker ${id} does not exists, please create it first`;
+    console.log({brokerInfo});
+    const broker = new Broker(brokerInfo, account)
+    await broker.load();
+    console.log('running broker with index', broker.id);
+    await broker.listen();
   }
 
 
   export const worker_subscribe = async (w, topic) => {    
-
-    w.subscribe(topic);
+    await w.subscribe(topic);
   }
-  export const worker_publish = async (w, topic, msg) => {    
+  export const worker_publish = async (w, topic, msg, forceFail) => {    
 
-    await w.publish(topic, msg);
+    await w.publish(topic, msg, !!forceFail);
     console.log('data sent');
     w.close();
   }

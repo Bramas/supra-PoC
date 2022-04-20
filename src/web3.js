@@ -6,7 +6,7 @@ const url = 'http://127.0.0.1:9545';
 
 import Web3 from 'web3';
 
-const web3 = new Web3(url);
+const web3 = new Web3(new Web3.providers.WebsocketProvider(url));
 
 
 if(!process.env.TRUFFLE_PK0) {

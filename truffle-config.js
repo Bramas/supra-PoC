@@ -4,25 +4,26 @@ module.exports = {
     solc: {
       version: "0.8.13" 
     }
-  }
+  },
   // Uncommenting the defaults below
   // provides for an easier quick-start with Ganache.
   // You can also follow this format for other networks.
   // See details at: https://trufflesuite.com/docs/truffle/reference/configuration
   // on how to specify configuration options!
-  //
-  //networks: {
-  //  development: {
-  //    host: "127.0.0.1",
-  //    port: 7545,
-  //    network_id: "*"
-  //  },
-  //  test: {
-  //    host: "127.0.0.1",
-  //    port: 7545,
-  //    network_id: "*"
-  //  }
-  //},
+  
+  networks: {
+    development: {
+      host: "127.0.0.1",
+      port: 7545,
+      network_id: "*",
+      websockets: true
+    },
+    test: {
+      host: "127.0.0.1",
+      port: 7545,
+      network_id: "*"
+    }
+  },
   //
   // Truffle DB is currently disabled by default; to enable it, change enabled:
   // false to enabled: true. The default storage location can also be

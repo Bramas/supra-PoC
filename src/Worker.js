@@ -39,10 +39,16 @@ class Worker {
     }
 
     async subscribe(topic) {
-        return await this._send(JSON.stringify({topic,type:'SUBSCRIBE'}));
+        await this._send(JSON.stringify({topic,type:'SUBSCRIBE'}));
+        await (new Promise(() => {})); //wait for infinity;
     }
-    async publish(topic, data) {
-        return await this._send(JSON.stringify({topic,data: strToData(data),type:'PUBLISH'}));
+    async publish(topic, data, forceFail) {
+        return await this._send(JSON.stringify({
+            topic,
+            data: strToData(data),
+            type:'PUBLISH',
+            forceFail
+        }));
     }
     close() {
         this.client.close();

@@ -9,6 +9,8 @@ In the output you will find the list of created private keys and some informatio
 
 Create an `.env` file containing two keys: 
 * `TRUFFLE_PK0`: the private key of the first account 
+* `TRUFFLE_PK1`: the private key of the second account 
+* `TRUFFLE_PK2`: the private key of the third account 
 * `SUPRA_ADDR`: the address of the supra contract
 
 
@@ -23,7 +25,7 @@ node src/mod_index.js broker listen 2222
 ```
 
 ```
-node src/mod_index.js broker listen 2223
+node src/mod_index.js broker listen 2223 --pk1
 ```
 
 One worker connected to the first broker, but subscribed to the second broker:
