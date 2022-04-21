@@ -55,7 +55,7 @@ contract Supra {
 
 	event Transfer(address indexed _from, address indexed _to, uint256 _value);
 
-	event NewMessage(address indexed from, uint64 indexed timestamp, uint32 indexed topic, bytes32 prev_hash, bytes data);
+	event NewMessage(address indexed from, uint64 indexed timestamp, uint32 indexed topic, bytes32 prev_hash, bytes data, uint message_id);
 
 	event BrokerInvalid(uint broker_id);
 
@@ -124,7 +124,7 @@ contract Supra {
 			prev_hash: prev_hash,
 			block_number: block.number
 		}));
-		emit NewMessage(msg.sender, timestamp, topic, prev_hash, data);
+		emit NewMessage(msg.sender, timestamp, topic, prev_hash, data, messages[msg.sender][topic].length-1);
 
 	}
 

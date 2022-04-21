@@ -1,5 +1,6 @@
 
 import { hashData, hashMessage, toBytes, signHash, signMessage, parseTopic } from './utils.js';
+import Log from './Log';
 
 let supra = null;
 let brokers = [];
@@ -37,21 +38,51 @@ export async function getBrokerInfo(broker_id) {
     return brokers[broker_id];
 }
 
-export async function sendMessageOnChain(msg, account) {
 
-    const [_, topic_id] = parseTopic(msg.topic);
+let transactionLock = false;
 
-    console.log('sending message on chain', {
-        msg
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) };
+async function waitFor(f) {
+    while(!f()) await sleep(1000);
+    return f();
+};
+
+async function acquireTransactionLock(cb) {
+    await waitFor(() => !transactionLock);
+    transactionLock = true;
+    const ret = await cb();
+    transactionLock = false;
+    return ret;
+}
+
+function getReceipt(sentPromise) {
+    return new Promise((acc, rej) => {
+        sentPromise
+            .on('receipt', function(receipt) {
+                acc(receipt);
+            })
+            .on('error', function(error, receipt) {
+                rej(err);
+            })
     })
+}
 
-    const gas = await supra.methods
-        .sendMessage(topic_id, msg.data, msg.timestamp, msg.prev_hash)
-        .estimateGas({from: account});
+export async function sendMessageOnChain(msg, account) {
+    return await acquireTransactionLock(async () => {
+        Log('sending message on chain '+ msg.timestamp);
+        const [_, topic_id] = parseTopic(msg.topic);
 
-    return supra.methods
-        .sendMessage(topic_id, msg.data, msg.timestamp, msg.prev_hash)
-        .send({gas, from: account});
+        const gas = await supra.methods
+            .sendMessage(topic_id, msg.data, msg.timestamp, msg.prev_hash)
+            .estimateGas({from: account});
+
+        const receipt = await getReceipt(supra.methods
+            .sendMessage(topic_id, msg.data, msg.timestamp, msg.prev_hash)
+            .send({gas, from: account}));
+        Log('sent message on chain '+msg.timestamp+'id=', receipt.events.NewMessage.returnValues.message_id);
+
+        return receipt.events.NewMessage.returnValues.message_id;
+    })
 }
 
 export async function registerBroker(ipAddr, port, account) {
@@ -65,7 +96,7 @@ export async function registerBroker(ipAddr, port, account) {
             .send({ gas, from: account, value:1000 });
         return true;
     } catch(e) {
-        console.log('unable to register broker', e);
+        Log('unable to register broker', e);
     }
     return false;
 }

@@ -7,6 +7,7 @@ import InSubscriptions from './InSubscriptions'
 import OutSubscriptions from './OutSubscriptions'
 import { hashData, hashMessage, toBytes, signHash, signMessage, parseTopic } from './utils.js';
 import { getBrokerInfo, registerBroker, getBrokers } from './supraContract';
+import Log from './Log';
 
 const BN = web3.utils.BN;
 
@@ -26,25 +27,6 @@ class Broker {
 
         this.sentMessages = {};
         
-        this.initServer();
-
-        this.inSubscriptions = new InSubscriptions(
-            this.id,
-            this.accountAdr,
-            this.server,
-            this.onDistantMessage.bind(this)
-        );
-        this.outSubscriptions = new OutSubscriptions(
-            this.id,
-            this.accountAdr,
-            this.server);
-
-
-        this.storeFilename = `store/${accountAdr.slice(0,7)}_sent.json`;
-        if(fs.existsSync(this.storeFilename))
-        {
-            this.sentMessages = JSON.parse(fs.readFileSync(this.storeFilename))
-        }
     }
 
     initServer() {
@@ -52,7 +34,7 @@ class Broker {
         const self = this;
 
         this.server.on('error',function(error){
-            console.log('Error:', error);
+            Log('Error in initServer():', error);
             this.server.close();
         });
         this.server.on('listening',function(){
@@ -60,16 +42,14 @@ class Broker {
             var port = address.port;
             var family = address.family;
             var ipaddr = address.address;
-            console.log('Server is listening at port ' + port);
-            console.log('Server ip :' + ipaddr);
-            console.log('Server is IP4/IP6 : ' + family);
+            Log(`Server is listening at ${ipaddr}:${port}`);
         });
         this.server.on('close',function(){
-            console.log('Socket is closed !');
+            Log('Socket is closed !');
         });
         this.server.on('message',function(msg,info){
             msg = JSON.parse(msg.toString());
-            console.log('received', {msg,info});
+            Log('UDP received', {msg,info});
 
             if(msg.type == 'SUBSCRIBE') {
                 self.subscribe(msg.topic, info);
@@ -83,6 +63,10 @@ class Broker {
             else if(msg.type == 'BROKER_PUBLISH') {
                 self.inSubscriptions.receivedOffChain(msg);
             } 
+        });
+
+        return new Promise((accept, reject) => {
+            this.server.bind(parseInt(this.port), '0.0.0.0', accept);
         });
     }
 
@@ -98,6 +82,26 @@ class Broker {
         if(this.brokers[this.id] === undefined)
             throw `unable to find the current broker index ${this.id} in the broker list. Did you created it?`;
         
+        await this.initServer();
+
+        this.inSubscriptions = new InSubscriptions(
+            this.id,
+            this.accountAdr,
+            this.server,
+            this.onDistantMessage.bind(this)
+        );
+        this.outSubscriptions = new OutSubscriptions(
+            this.id,
+            this.accountAdr,
+            this.server);
+
+
+        this.storeFilename = `store/${this.accountAdr.slice(0,7)}_sent.json`;
+        if(fs.existsSync(this.storeFilename))
+        {
+            this.sentMessages = JSON.parse(fs.readFileSync(this.storeFilename))
+        }
+
     }
 
     prevHash(topic) {
@@ -116,7 +120,7 @@ class Broker {
 
 
     async onNewBrokerSubscription(broker, topic_id) {
-        console.log('New broker subscription');
+        Log('New broker subscription');
 
         this.inSubscriptions.add(broker.id, topic_id);
 
@@ -144,12 +148,12 @@ class Broker {
                     broker_id: this.id,
                     type: 'BROKER_SUBSCRIBE'
                 }));
-                console.log('new distant sub', {topic, broker, subInfo});
+                Log('new distant sub', {topic, broker, subInfo});
 
                 const bs = new udp.createSocket('udp4');
                 bs.send(data, broker.port,  broker.ipAddr, function(error) {
                     if(error){
-                        console.log(error);
+                        Log('Error in subscribe()', error);
                     } else {
                         self.onNewBrokerSubscription(broker, topic_id);
                     }
@@ -158,8 +162,8 @@ class Broker {
                 /*
                 bs.on('message', function(msg, info){
                     msg = JSON.parse(msg.toString());
-                    console.log('Data received from broker : ');
-                    console.log({msg, info});
+                    Log('Data received from broker : ');
+                    Log({msg, info});
                     self.broker_publish(msg);
                 });
                 this.broker_sockets.push(bs);
@@ -168,7 +172,7 @@ class Broker {
         } 
         else 
         {
-            console.log('new local sub', {topic, subInfo});
+            Log('new local sub', {topic, subInfo});
             topic = this.getBrokerPrefix() + ':' + topic;
         }
 
@@ -196,7 +200,7 @@ class Broker {
 
 
 
-        console.log('sign & publish', msg);
+        Log('sign & publish', msg);
         
         const sig = await this.signMessage(msg);
 
@@ -206,24 +210,24 @@ class Broker {
     }
 
     publish(msg) {
-        console.log('publish:', msg);
+        Log('publish:', msg);
 
         const buff = Buffer.from(JSON.stringify(msg));
 
         (this.subscribers[msg.topic] || []).forEach(subInfo => {
-            console.log('sending message to ', subInfo);
+            Log('sending message to ', subInfo);
             this.server.send(buff, subInfo.port, subInfo.address, function(error){
                 if(error){
-                    console.log('error:', error);
+                    Log('error in publish():', error);
                 }
             });
         });
     }
 
+    async run() {
+        await this.load();
 
-    listen(port) {
-        console.log('listning port:', this.port)
-        return new Promise(() => this.server.bind(parseInt(this.port)));
+        await (new Promise(() => {}));
     }
 
 }

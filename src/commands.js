@@ -33,9 +33,9 @@ export const broker_listen = async (account, id) => {
     if(!brokerInfo) throw `broker ${id} does not exists, please create it first`;
     console.log({brokerInfo});
     const broker = new Broker(brokerInfo, account)
-    await broker.load();
+
     console.log('running broker with index', broker.id);
-    await broker.listen();
+    await broker.run();
   }
 
 

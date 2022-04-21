@@ -5,7 +5,9 @@ import {
     hashMessage, 
     parseTopic,
     toBytes,
+    verifyAck
 } from './utils.js';
+import Log from './Log';
 import { contractEvents, getBrokerInfo, sendMessageOnChain } from './supraContract'
 
 class OutSubscriptions {
@@ -16,6 +18,7 @@ class OutSubscriptions {
         this.account = account;
         this.openSub = {};
         this.closedSub = {};
+        this.sendingTimeout = {};
         
         this.filenameOpenSub = `store/${this.account.slice(0,7)}_openSub_out.json`;
         this.filenameClosedSub = `store/${this.account.slice(0,7)}_closedSub_out.json`;
@@ -69,52 +72,70 @@ class OutSubscriptions {
             {
                 this.server.send(buff, broker.port, broker.ipAddr, function(error){
                     if(error){
-                        console.log('error:', error);
+                        Log('error:', error);
                         //TODO send onChain
                     }
                 });
             }
 
-            msg.timeoutId = setTimeout(this.sendOnChain.bind(this, msg), 10000);
+            const hashedMessage = hashMessage(msg);
+            this.updateSendingTimeout(msg);
 
-            console.log(`sending message to broker [${topic_id}][${broker_id}]`, broker);
-            this.openSub[topic_id][broker_id].sent[hashMessage(msg)] = msg;
+            Log(`sending message to broker [${topic_id}][${broker_id}]`, broker);
+            this.openSub[topic_id][broker_id].sent[hashedMessage] = msg;
         }
 
         this.save();   
     }
 
     async retryAll() {
-        return; 
         for(const topic_id in this.openSub) {
             for(const broker_id in this.openSub[topic_id]) {
-                for(const h in this.openSub[topic_id][broker_id]){
+                for(const h in this.openSub[topic_id][broker_id].sent){
 
-                    const msg = this.openSub[topic_id][broker_id];
+                    const msg = this.openSub[topic_id][broker_id].sent[h];
                     const broker = await getBrokerInfo(broker_id);
-                    msg.timeoutId = undefined;
+                    
                     const buff = Buffer.from(JSON.stringify(msg));
-
+                    Log('retryAll: sending again to broker_id', {broker_id, msg});
                     if(!msg.forceFail) // for testing purpose, simulate a failure
                     {
                         this.server.send(buff, broker.port, broker.ipAddr, function(error){
                             if(error) {
-                                console.log('error:', error);
+                                Log('error:', error);
                                 //TODO send onChain
                             }
                         });
                     }
-                    
-                    msg.timeoutId = setTimeout(this.sendOnChain.bind(this, msg), 10000);
+                    this.updateSendingTimeout(msg);
                 }
             }
         }
     }
     
+    updateSendingTimeout(msg) {
+        const hashedMessage = hashMessage(msg);
+        if(!this.sendingTimeout[hashedMessage])
+        {
+            this.sendingTimeout[hashedMessage] = setTimeout(this.sendOnChain.bind(this, msg), 10000);
+        }
+    }
 
     async sendOnChain(msg) {
-        console.log('sending message onChain', msg);
-        sendMessageOnChain(msg, this.account);
+        Log('sending message onChain', msg);
+        const messageId = await sendMessageOnChain(msg, this.account);
+        const hashedMessage = hashMessage(msg);
+        for(const topic_id in this.openSub) {
+            for(const broker_id in this.openSub[topic_id]) {
+                if(this.openSub[topic_id][broker_id].sent[hashedMessage])
+                {
+                    delete this.openSub[topic_id][broker_id].sent[hashedMessage];
+                    msg.messageId = messageId;
+                    this.openSub[topic_id][broker_id].onChain[hashedMessage] = msg;
+                }
+            }
+        }
+        this.save();
     }
 
 
@@ -132,9 +153,11 @@ class OutSubscriptions {
         //TODO: save here the proof that the subscription is open
         this.openSub[topic_id][broker_id] = {
             sent: {},
-            ack: {}
+            ack: {},
+            onChain: {}
         };
         this.listenOnChainMessages(broker_id, topic_id);
+        this.save();
     }
 
     ack(msg) {
@@ -145,18 +168,30 @@ class OutSubscriptions {
             // already acknowledged
             return;
         }
+        const sentMsg = this.openSub[topic_id][broker_id].sent[msg.hashedMessage];
         //TODO: Check signature
 
+        verifyAck(msg);
 
-        this.openSub[topic_id][broker_id].ack = msg;
+        this.openSub[topic_id][broker_id].ack = {
+            sentMsg,
+            ...msg
+        };
 
         let prev_hash = msg.hashedMessage;
         while(this.openSub[topic_id][broker_id].sent[prev_hash] !== undefined) 
         {
             let m = this.openSub[topic_id][broker_id].sent[prev_hash];
-            clearTimeout(m.timeoutId);
+            clearTimeout(this.sendingTimeout[msg.hashedMessage]);
+            delete this.sendingTimeout[msg.hashedMessage];
             delete this.openSub[topic_id][broker_id].sent[prev_hash];
             prev_hash = m.prev_hash;
+        }
+
+        for(let h in this.openSub[topic_id][broker_id].onChain) {
+            if(this.openSub[topic_id][broker_id].onChain[h].timestamp < sentMsg.timestamp) {
+                delete this.openSub[topic_id][broker_id].onChain[h];
+            }
         }
 
         this.save();
@@ -178,10 +213,10 @@ class OutSubscriptions {
             fromBlock: 0
         })
         .on("connected", function(subscriptionId){
-            console.log(`Listening to onChain message: ${broker_id}:${topic_id}`);
+            Log(`Listening to onChain message: ${broker_id}:${topic_id}`);
         })
         .on('data', function(event){
-            console.log(`receiving onChain event ${broker_id}:${topic_id}`, event.returnValues); 
+            Log(`receiving onChain event ${broker_id}:${topic_id}`, event.returnValues); 
             
             self._onMessage({
                 ...event.returnValues,
@@ -191,12 +226,12 @@ class OutSubscriptions {
         })
         .on('changed', function(event){
             // remove event from local database
-            console.log(`onChain event ${broker_id}:${topic_id} changed`, event);
+            Log(`onChain event ${broker_id}:${topic_id} changed`, event);
         })
         .on('error', function(error, receipt) { 
             // If the transaction was rejected by the network with a receipt, the second parameter will be the receipt.
-            console.log(`onChain event ${broker_id}:${topic_id} ERROR:`);
-            console.log({error, receipt});
+            Log(`onChain event ${broker_id}:${topic_id} ERROR:`);
+            Log({error, receipt});
         });
         */
     }

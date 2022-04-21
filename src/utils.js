@@ -1,4 +1,5 @@
 import { getBrokerInfo } from './supraContract';
+import Log from './Log';
 
 let web3 = null;
 
@@ -72,7 +73,28 @@ export async function signHash(hashedMessage, account) {
 }
 
 
+export async function verifyAck(msg) {
 
+    const signer = await web3.eth.accounts.recover(
+        msg.hashedMessage,
+        '0x'+msg.v.toString(16),
+        msg.r,
+        msg.s
+    );
+
+    const broker = await getBrokerInfo(msg.broker_id);
+    
+    if((signer !== broker.account))
+    {
+        Log('Wrong ack sender', {
+            broker_id: msg.broker_id,
+            broker,
+            signer
+        });
+    }
+
+    return (signer === broker.account);
+}
 
 export async function verifyMessage(msg) {
 
@@ -90,10 +112,11 @@ export async function verifyMessage(msg) {
     
     if((signer !== broker.account))
     {
-        console.log('Wrong sender')
-        console.log(msg.topic)
-        console.log(broker)
-        console.log(signer);
+        Log('Wrong sender',{
+            topic: msg.topic,
+            broker,
+            signer
+        });
     }
 
     return (signer === broker.account);

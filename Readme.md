@@ -18,14 +18,19 @@ then in another terminal execute
 ```
 npm install
 ```
+Create 2 brokers:
+```
+node src/mod_index.js broker create 127.0.0.1 2222
+node src/mod_index.js broker create 127.0.0.1 2223 --pk1
+```
 
 Then you can open 4 terminals to start 2 brokers:
 ```
-node src/mod_index.js broker listen 2222
+node src/mod_index.js broker listen 0
 ```
 
 ```
-node src/mod_index.js broker listen 2223 --pk1
+node src/mod_index.js broker listen 1 --pk1
 ```
 
 One worker connected to the first broker, but subscribed to the second broker:
