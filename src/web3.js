@@ -2,7 +2,7 @@ import dotenv from 'dotenv'
 dotenv.config();
 
 
-const url = 'http://127.0.0.1:9545';
+const url = 'http://127.0.0.1:7545';
 
 import Web3 from 'web3';
 

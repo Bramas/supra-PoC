@@ -1,5 +1,9 @@
-module.exports = {
+const Conf = require("conf");
 
+const userConf = new Conf({ projectName: "truffle" });
+userConf.set('mnemonic', 'candy maple cake sugar pudding cream honey rich smooth crumble sweet treat');
+
+module.exports = {
   compilers: {
     solc: {
       version: "0.8.13" 
@@ -12,7 +16,8 @@ module.exports = {
   // on how to specify configuration options!
   
   networks: {
-    development: {
+    develop: {
+      accounts: 3,
       host: "127.0.0.1",
       port: 7545,
       network_id: "*",

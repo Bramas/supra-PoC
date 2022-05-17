@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "truffle-config.js",
+  "mnemonic": "candy maple cake sugar pudding cream honey rich smooth crumble sweet treat",
   "directories": {
     "test": "test"
   },
@@ -10,6 +11,8 @@
     "test": "truffle test --show-events ./test/supra.js"
   },
   "dependencies": {
+    "@truffle/hdwallet-provider": "^2.0.8",
+    "conf": "^10.1.2",
     "dotenv": "^16.0.0",
     "esm": "^3.2.25",
     "web3": "^1.2.1"

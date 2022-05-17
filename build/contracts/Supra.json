@@ -48868,12 +48868,12 @@
     "5777": {
       "events": {},
       "links": {},
-      "address": "0x2F29907180E0A423306C553100587f17CBA801e9",
-      "transactionHash": "0x2a4771785c965dfae07984d1422d152e9fe654d54297747c968801535116acfe"
+      "address": "0x345cA3e014Aaf5dcA488057592ee47305D9B3e10",
+      "transactionHash": "0xbeaf8eb96d3720cdba12d9b13a0cee3f72a399792815c5aa3bd52927ce4ad587"
     }
   },
   "schemaVersion": "3.4.6",
-  "updatedAt": "2022-04-21T12:48:43.560Z",
+  "updatedAt": "2022-05-17T12:46:57.794Z",
   "networkType": "ethereum",
   "devdoc": {
     "kind": "dev",
