@@ -3,17 +3,17 @@
 
 ### Registering two brokers on the blockchain
 
-<img src="./figures/SUPRA POC-Page-1.svg" width="400" />
+<img src="./figures/SUPRA POC-Page-1.svg" width="900" />
 
 ### Connecting a device to a broker, listenning to a topic of the second broker.
 
-<img src="./figures/SUPRA POC-SUB.svg" width="400" />
+<img src="./figures/SUPRA POC-SUB.svg" width="900" />
 
 ### Publishing a content, the message is sent off-chain
-<img src="./figures/SUPRA POC-DATA off.svg" width="400" />
+<img src="./figures/SUPRA POC-DATA off.svg" width="900" />
 
 ### Publishing a content, the message is sent on-chain
-<img src="./figures/SUPRA POC-DATA on.svg" width="400" />
+<img src="./figures/SUPRA POC-DATA on.svg" width="900" />
 
 
 
