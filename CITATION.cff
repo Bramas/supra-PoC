@@ -1,0 +1,18 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: >-
+  Proof-of-Concept of SUPRA, a distributed
+  publish/subscribe protocol with blockchain as a
+  conflict resolver
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Quentin
+    family-names: Bramas
+    email: bramas@unistra.fr
+    affiliation: 'ICUBE, University of Strasbourg, France'
+    orcid: 'https://orcid.org/0000-0003-0612-5616'
