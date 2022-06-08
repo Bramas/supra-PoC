@@ -1,5 +1,6 @@
 
-# Experiment Steps
+# Experiment Steps with 2 Brokers
+(see installation and details after)
 
 ### Registering two brokers on the blockchain
 
@@ -27,7 +28,21 @@ npm install -g tuffle
 
 
 
-# Steps
+# Steps for the unit tests
+
+in one terminal start truffle :
+```
+truffle develop
+```
+
+In another terminal start the tests:
+```
+truffle test ./test/supra.js
+```
+it should be all green!
+
+
+# Steps for the 2 brokers scenario
 
 ### Start truffle
 ```
