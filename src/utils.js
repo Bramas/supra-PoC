@@ -44,6 +44,17 @@ export function hashMessage({timestamp, topic, data, hashedData, prev_hash}) {
         prev_hash.slice(2));
 }
 
+export function hashOpeningSub({timestamp, topic, subscriber, prev_hash}) {
+
+    const [_, topic_id] = parseTopic(topic);
+
+    return web3.utils.soliditySha3(
+        toBytes(timestamp, 8) + 
+        toBytes(topic_id, 4).slice(2) + 
+        subscriber.slice(2) + 
+        prev_hash.slice(2));
+}
+
 export function toBytes(n, nb_bytes) {
     return '0x'+(new web3.utils.BN(n)).toString(16,nb_bytes*2)
 }

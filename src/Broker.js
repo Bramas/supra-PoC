@@ -1,6 +1,5 @@
 
 
-import web3 from './web3.js';
 import fs from 'fs';
 import udp from 'dgram';
 import InSubscriptions from './InSubscriptions'
@@ -9,11 +8,9 @@ import { hashData, hashMessage, toBytes, signHash, signMessage, parseTopic } fro
 import { getBrokerInfo, registerBroker, getBrokers } from './supraContract';
 import Log from './Log';
 
-const BN = web3.utils.BN;
 
 class Broker {
 
-    static web3 = null;
 
     constructor(brokerInfo, accountAdr) {
         this.accountAdr = accountAdr;
@@ -23,7 +20,6 @@ class Broker {
         this.id = brokerInfo.id;
         this.port = brokerInfo.port;
         this.ipAddr = brokerInfo.ipAddr;
-
 
         this.sentMessages = {};
         
@@ -182,23 +178,27 @@ class Broker {
         this.subscribers[topic].push(subInfo);
     }
 
-    async sign_and_publish(msg) {
-        
+    save_storeFile() {
+        fs.writeFileSync(this.storeFilename, JSON.stringify(this.sentMessages));
+    }
+
+    prepare_msg(msg) {
         if(msg.topic.indexOf(':') == -1) {
             msg.topic = this.getBrokerPrefix()+':'+msg.topic;
         }
-
         this.timestamp = msg.timestamp = Math.max(this.timestamp + 1, new Date().getTime());
+        msg.prev_hash = this.prevHash(msg.topic);
+        return msg;
+    }
+
+    async sign_and_publish(msg) {
+        msg = this.prepare_msg(msg);
 
         const [broker_id, topic_id] = parseTopic(msg.topic);
 
-        msg.prev_hash = this.prevHash(msg.topic);
-
         if(!this.sentMessages[topic_id]) this.sentMessages[topic_id] = [];
         this.sentMessages[topic_id].push(msg);
-        fs.writeFileSync(this.storeFilename, JSON.stringify(this.sentMessages));
-
-
+        this.save_storeFile();
 
         Log('sign & publish', msg);
         
@@ -231,6 +231,5 @@ class Broker {
     }
 
 }
-Broker.web3 = web3;
 
 export default Broker;

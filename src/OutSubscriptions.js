@@ -73,7 +73,6 @@ class OutSubscriptions {
                 this.server.send(buff, broker.port, broker.ipAddr, function(error){
                     if(error){
                         Log('error:', error);
-                        //TODO send onChain
                     }
                 });
             }

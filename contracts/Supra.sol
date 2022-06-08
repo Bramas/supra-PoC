@@ -56,11 +56,15 @@ contract Supra {
 	event Transfer(address indexed _from, address indexed _to, uint256 _value);
 
 	event NewMessage(address indexed from, uint64 indexed timestamp, uint32 indexed topic, bytes32 prev_hash, bytes data, uint message_id);
+	event NewAccusation(uint accusation_id);
+
+	event AccusationFailed(uint accusation_id);
 
 	event BrokerInvalid(uint broker_id);
 
 	event LogBytes32(bytes32 b);
 	event LogBytes(bytes b);
+
 
 	constructor () {
 		
@@ -174,7 +178,8 @@ contract Supra {
 		bytes32 msgHash = messageHash(timestamp,topic,data_hash,prev_hash);
 		require(defendant == VerifyMessage(
 			msgHash, 
-			sig_v, sig_rs[0], sig_rs[1])
+			sig_v, sig_rs[0], sig_rs[1]),
+			"the defendant is not the signer of the message"
 		);
 	}
 	function _accuse_check_openning(
@@ -191,7 +196,8 @@ contract Supra {
 		address defendant = brokers[defendant_id].account;
 		require(defendant == VerifyMessage(
 			hashOpeningSub(open_timestamp, topic, msg.sender, open_prev_hash), 
-			open_sig_v, open_sig_rs[0], open_sig_rs[1])
+			open_sig_v, open_sig_rs[0], open_sig_rs[1]),
+			"the defendant is not the signer of the opening subscription message"
 		);
 
 	}
@@ -214,8 +220,9 @@ contract Supra {
 		
 		) public payable
 	{
-		require(msg.value >= FINE);
-		require(block.timestamp >= timestamp + (MESSAGE_MAX_DELAY_HOURS * 1 hours));
+		require(msg.value >= FINE, "To accuse, you must pay the FINE (in case it is a wrong accusation)");
+		require(block.timestamp >= timestamp + (MESSAGE_MAX_DELAY_HOURS * 1 hours),
+		"You must wait a delay before accusing");
 
 		_accuse_check_message(defendant_id, topic,prev_hash, data_hash, timestamp, sig_v, sig_rs);
 		_accuse_check_openning(defendant_id, topic, open_timestamp, open_prev_hash, open_sig_v, open_sig_rs);
@@ -241,6 +248,7 @@ contract Supra {
 			open_sig_r: open_sig_rs[0],
 			open_sig_s: open_sig_rs[1]
 		}));
+		emit NewAccusation(accusations.length-1);
 	}
 
 	function defendClosedSubOnChain(
@@ -330,8 +338,8 @@ contract Supra {
 		Message storage m = messages[defendant][topic][message_id]; 
 		bytes32 proof_hash = messageHash(m.timestamp, topic, hashData(m.data), m.prev_hash); 
 		
-		require(missing_hash == proof_hash);
-		require(accusations[accusation_id].block_number > m.block_number);
+		require(missing_hash == proof_hash, "The missing hash must equal the hash of the message_id");
+		require(accusations[accusation_id].block_number > m.block_number, "The message on the blockchain must appear before the accusation");
 		
 		_payeAccuserFine(accusation_id);
 		
@@ -353,14 +361,14 @@ contract Supra {
 	{
 		// It is a message that has been sent after the accusing message
 		// and that appear in the same subscription (same topic, same publisher)
-		require(topic == accusations[accusation_id].topic);
-		require(msg.sender == brokers[accusations[accusation_id].defendant_id].account);
-		require(timestamp > accusations[accusation_id].timestamp);
+		require(topic == accusations[accusation_id].topic, "the topic should be the same");
+		require(msg.sender == brokers[accusations[accusation_id].defendant_id].account, "the sender should be the defendant");
+		require(timestamp < accusations[accusation_id].timestamp, "the timestamp of the message should be before the timestamp of the accusing message");
 
 		// and it has been acknowledged
 		bytes32 msgHash = messageHash(timestamp, topic, dataHash, prevHash);
 		address accuser = accusations[accusation_id].accuser;
-		require(accuser == VerifyMessage(msgHash, _v, _r, _s));
+		require(accuser == VerifyMessage(msgHash, _v, _r, _s), "the acknowledgment must come from the accuser");
 
 				
 		_payeAccuserFine(accusation_id);
@@ -398,6 +406,8 @@ contract Supra {
 
 		balances[accuser] -= FINE;
 		balances[defendant] += FINE;
+
+		emit AccusationFailed(accusation_id);
 	
 	}
 
